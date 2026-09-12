@@ -1,0 +1,31 @@
+<app-quantity-selector (quantityChanged)="quantity = $event"> </app-quantity-selector>
+<a class="text-success">
+
+{{product.categoryName}}
+
+</a>
+
+<h1>
+
+{{product.productName}}
+
+</h1>
+
+<h2 class="text-success">
+
+₹{{product.price}}
+
+</h2>
+
+<p>
+
+{{product.description}}
+
+</p>
+<button
+    class="btn btn-success mt-3"
+    (click)="addToCart()">
+
+    Add To Cart
+
+</button>

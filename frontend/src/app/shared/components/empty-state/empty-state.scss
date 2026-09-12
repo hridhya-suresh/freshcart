@@ -1,0 +1,13 @@
+.empty-state {
+  min-height: 300px;
+
+  display: flex;
+  flex-direction: column;
+
+  align-items: center;
+  justify-content: center;
+}
+
+.empty-icon {
+  font-size: 60px;
+}

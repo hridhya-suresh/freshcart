@@ -1,23 +1,20 @@
 ﻿using freshcart.Data;
 using freshcart.DTOs;
-using freshcart.Hubs;
 using freshcart.Interfaces;
 using freshcart.Models;
-using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
-using Razorpay.Api;
 
 namespace freshcart.Services
 {
     public class OrderService : IOrderService
     {
         private readonly ApplicationDbContext _context;
-        private readonly IHubContext<OrderHub> _orderHub;
+        private readonly IOrderRealtimeService _realtime;
 
-        public OrderService(ApplicationDbContext context, IHubContext<OrderHub> orderHub)
+        public OrderService(ApplicationDbContext context, IOrderRealtimeService realtime)
         {
             _context = context;
-            _orderHub = orderHub;
+            _realtime = realtime;
         }
         private async Task<Models.Order?> FindExistingUnpaidOrderAsync( int userId,int addressId, string paymentMethod, List<CartItem> cartItems)
         {
@@ -159,18 +156,12 @@ namespace freshcart.Services
             // Save so order.OrderId is generated
             await _context.SaveChangesAsync();
 
-            // Notify clients using the real order id
-            await _orderHub.Clients
-                .Group($"order-{order.OrderId}")
-                .SendAsync(
-                    "OrderStatusChanged",
-                    new
-                    {
-                        orderId = order.OrderId,
-                        orderStatus = order.OrderStatus,
-                        paymentStatus = order.PaymentStatus
-                    }
-                );
+            // Useful if the client already joined user-{userId} (e.g. on orders page)
+            await _realtime.NotifyOrderStatusChangedAsync(
+                order.OrderId,
+                order.UserId,
+                order.OrderStatus,
+                order.PaymentStatus);
 
             return new OrderDto
             {

@@ -7,11 +7,16 @@ namespace freshcart.Services
     public class PaymentService : IPaymentService
     {
         private readonly ApplicationDbContext _context;
+        private readonly IOrderRealtimeService _realtime;
 
-        public PaymentService(ApplicationDbContext context)
+        public PaymentService(
+            ApplicationDbContext context,
+            IOrderRealtimeService realtime)
         {
             _context = context;
+            _realtime = realtime;
         }
+
         public async Task<bool> MarkOrderAsPaidAsync(int orderId, string razorpayPaymentId)
         {
             var order = await _context.Orders
@@ -37,8 +42,15 @@ namespace freshcart.Services
 
             await _context.SaveChangesAsync();
 
+            await _realtime.NotifyOrderStatusChangedAsync(
+                order.OrderId,
+                order.UserId,
+                order.OrderStatus,
+                order.PaymentStatus);
+
             return true;
         }
+
         public async Task<bool> MarkOrderAsFailedAsync(int orderId)
         {
             var order = await _context.Orders
@@ -51,9 +63,19 @@ namespace freshcart.Services
             if (order.PaymentStatus == "Paid")
                 return true;
 
+            // Avoid noisy duplicate notifications
+            if (order.PaymentStatus == "Failed")
+                return true;
+
             order.PaymentStatus = "Failed";
 
             await _context.SaveChangesAsync();
+
+            await _realtime.NotifyOrderStatusChangedAsync(
+                order.OrderId,
+                order.UserId,
+                order.OrderStatus,
+                order.PaymentStatus);
 
             return true;
         }

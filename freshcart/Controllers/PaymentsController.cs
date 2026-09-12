@@ -2,11 +2,9 @@
 using freshcart.DTOs.Payment;
 using freshcart.Interfaces;
 using freshcart.Models;
-using freshcart.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Razorpay.Api;
 using System.Security.Claims;
 
 namespace freshcart.Controllers
@@ -20,17 +18,20 @@ namespace freshcart.Controllers
         private readonly IRazorpayService _razorpayService;
         private readonly IConfiguration _configuration;
         private readonly IPaymentService _paymentService;
+        private readonly IOrderRealtimeService _realtime;
 
         public PaymentsController(
             ApplicationDbContext context,
             IRazorpayService razorpayService,
             IConfiguration configuration,
-            IPaymentService paymentService)
+            IPaymentService paymentService,
+            IOrderRealtimeService realtime)
         {
             _context = context;
             _razorpayService = razorpayService;
             _configuration = configuration;
             _paymentService = paymentService;
+            _realtime = realtime;
         }
 
         private int GetUserId()
@@ -433,6 +434,12 @@ namespace freshcart.Controllers
                 order.PaymentStatus = "Pending";
 
                 await _context.SaveChangesAsync();
+
+                await _realtime.NotifyOrderStatusChangedAsync(
+                    order.OrderId,
+                    order.UserId,
+                    order.OrderStatus,
+                    order.PaymentStatus);
 
                 return Ok(new PaymentOrderResponse
                 {

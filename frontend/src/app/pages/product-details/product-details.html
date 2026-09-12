@@ -1,0 +1,22 @@
+
+<div class="container mt-5" *ngIf="product">
+
+    <div class="row">
+
+        <div class="col-lg-5">
+
+           <app-product-gallery [product]="product"></app-product-gallery>
+
+        </div>
+
+        <div class="col-lg-7">
+
+            <app-product-info
+                [product]="product">
+            </app-product-info>
+            <app-related-products [productId]="product.productId"></app-related-products>
+        </div>
+
+    </div>
+
+</div>

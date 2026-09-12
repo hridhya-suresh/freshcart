@@ -1,0 +1,37 @@
+<h3 class="mb-4">Related Products</h3>
+
+<div class="row">
+
+    <div
+        class="col-md-3"
+        *ngFor="let product of products">
+
+        <div class="card h-100">
+
+            <img
+                [src]="'assets/images/products/' + product.imageUrl"
+                class="card-img-top">
+
+            <div class="card-body">
+
+                <h6>{{ product.productName }}</h6>
+
+                <p class="fw-bold">
+                    ₹{{ product.price }}
+                </p>
+
+                <a
+                    class="btn btn-outline-success w-100"
+                    [routerLink]="['/product', product.productId]">
+
+                    View Details
+
+                </a>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
