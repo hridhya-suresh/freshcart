@@ -16,8 +16,9 @@ namespace freshcart.Data
         public DbSet<Address> Addresses { get; set; }
         public DbSet<Order> Orders { get; set; }
         public DbSet<OrderItem> OrderItems { get; set; }
+        public DbSet<ProcessedWebhookEvent> ProcessedWebhookEvents { get; set; }
 
-    protected override void OnModelCreating(ModelBuilder modelBuilder)
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
@@ -44,7 +45,12 @@ namespace freshcart.Data
                 .WithMany()
                 .HasForeignKey(oi => oi.ProductId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            //modelBuilder.Entity<ProcessedWebhookEvent>()
+            //   .HasIndex(x => x.EventId)
+            //   .IsUnique();
         }
+        
 
     } 
 }

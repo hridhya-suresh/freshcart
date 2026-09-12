@@ -1,7 +1,9 @@
 ﻿using freshcart.DTOs;
+using freshcart.Hubs;
 using freshcart.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using System.Security.Claims;
 
 namespace freshcart.Controllers
@@ -12,10 +14,12 @@ namespace freshcart.Controllers
     public class OrderController : Controller
     {
         private readonly IOrderService _orderService;
-
-        public OrderController(IOrderService orderService)
+        private readonly IHubContext<OrderHub> _orderHub;
+        public OrderController(IOrderService orderService, IHubContext<OrderHub> orderHub)
         {
             _orderService = orderService;
+            _orderHub = orderHub;
+
         }
 
         private int GetUserId()

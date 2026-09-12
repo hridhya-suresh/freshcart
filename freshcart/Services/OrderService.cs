@@ -1,20 +1,62 @@
 ﻿using freshcart.Data;
 using freshcart.DTOs;
+using freshcart.Hubs;
 using freshcart.Interfaces;
 using freshcart.Models;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using Razorpay.Api;
 
 namespace freshcart.Services
 {
     public class OrderService : IOrderService
     {
         private readonly ApplicationDbContext _context;
+        private readonly IHubContext<OrderHub> _orderHub;
 
-        public OrderService(ApplicationDbContext context)
+        public OrderService(ApplicationDbContext context, IHubContext<OrderHub> orderHub)
         {
             _context = context;
+            _orderHub = orderHub;
         }
+        private async Task<Models.Order?> FindExistingUnpaidOrderAsync( int userId,int addressId, string paymentMethod, List<CartItem> cartItems)
+        {
+            if (paymentMethod != "Online")
+                return null;
 
+           var unpaidOrders = await _context.Orders
+            .Where(o =>
+                o.UserId == userId &&
+                o.PaymentMethod == "Online" &&
+                o.PaymentStatus != "Paid" &&
+                o.OrderStatus != "Cancelled")
+            .Include(o => o.OrderItems)
+                .ThenInclude(i => i.Product)
+            .ToListAsync();
+
+            foreach (var order in unpaidOrders)
+            {
+                if (order.AddressId != addressId)
+                    continue;
+
+                if (order.OrderItems.Count != cartItems.Count)
+                    continue;
+
+                bool sameItems = order.OrderItems.All(orderItem =>
+                    cartItems.Any(cartItem =>
+                        cartItem.ProductId == orderItem.ProductId &&
+                        cartItem.Quantity == orderItem.Quantity
+                    )
+                );
+
+                if (sameItems)
+                {
+                    return order;
+                }
+            }
+
+            return null;
+        }
         public async Task<OrderDto> CreateOrderAsync(int userId, CreateOrderDto dto)
         {
             // Get address belonging to logged-in user
@@ -34,9 +76,43 @@ namespace freshcart.Services
 
             if (!cartItems.Any())
                 throw new Exception("Cart is empty.");
+            var existingOrder =
+            await FindExistingUnpaidOrderAsync(
+                userId,
+                dto.AddressId,
+                dto.PaymentMethod,
+                cartItems);
+
+            if (existingOrder != null)
+            {
+                return new OrderDto
+                {
+                    OrderId = existingOrder.OrderId,
+                    OrderDate = existingOrder.OrderDate,
+                    TotalAmount = existingOrder.TotalAmount,
+                    OrderStatus = existingOrder.OrderStatus,
+                    PaymentStatus = existingOrder.PaymentStatus,
+                    PaymentMethod = existingOrder.PaymentMethod,
+                    AddressId = existingOrder.AddressId,
+
+                    Items = existingOrder.OrderItems
+                        .Select(item => new OrderItemDto
+                        {
+                            ProductId = item.ProductId,
+                            ProductName =
+                                item.Product?.ProductName ?? "",
+                            ImageUrl =
+                                item.Product?.ImageUrl,
+                            Quantity = item.Quantity,
+                            Price = item.Price,
+                            SubTotal = item.SubTotal
+                        })
+                        .ToList()
+                };
+            }
 
             // Create order
-            var order = new Order
+            var order = new Models.Order
             {
                 UserId = userId,
                 AddressId = dto.AddressId,
@@ -74,10 +150,27 @@ namespace freshcart.Services
 
             _context.Orders.Add(order);
 
-            // Clear cart after creating order
-            _context.CartItems.RemoveRange(cartItems);
+            // Clear cart before saving only for CashOnDelivery
+            if (dto.PaymentMethod == "CashOnDelivery")
+            {
+                _context.CartItems.RemoveRange(cartItems);
+            }
 
+            // Save so order.OrderId is generated
             await _context.SaveChangesAsync();
+
+            // Notify clients using the real order id
+            await _orderHub.Clients
+                .Group($"order-{order.OrderId}")
+                .SendAsync(
+                    "OrderStatusChanged",
+                    new
+                    {
+                        orderId = order.OrderId,
+                        orderStatus = order.OrderStatus,
+                        paymentStatus = order.PaymentStatus
+                    }
+                );
 
             return new OrderDto
             {

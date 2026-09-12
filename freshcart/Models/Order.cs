@@ -24,6 +24,10 @@
 
         public ICollection<OrderItem> OrderItems { get; set; }
             = new List<OrderItem>();
+        public string? RazorpayOrderId { get; set; }
+        public string? RazorpayPaymentId { get; set; }
+
+        public DateTime? PaymentDate { get; set; }
     }
     public class OrderItem
     {
